@@ -1,0 +1,8 @@
+tempRes.txt
+uniformResM1.txt
+/bin
+/.vscode
+.DS_Store
+/include/.DS_Store
+/src/.DS_Store
+/examples/.DS_Store
