@@ -6,6 +6,197 @@
 #include <string.h>
 #include "include/mp_fmm.h"
 
+
+
+int fmmDP(char *sourceFileName, char* targetFileName, 
+char* vectorFileName, char* resultFileName,
+unsigned int med, unsigned int led,
+unsigned long int mx, int mode
+){
+    // load sources
+    double complex * sources = NULL;
+    unsigned long int s = 0;
+    unsigned long int ns;
+    FILE *stream;
+    stream = fopen(sourceFileName, "r");
+    ns = complexDPReadall(stream, &sources, &s);
+    if (ns == 0){
+        printf("Not able to load source points as double complex.\n");
+        fclose(stream);
+        free(sources);
+        return EXIT_FAILURE;
+    }
+    fclose(stream);
+
+    // load targets
+    double complex * targets = NULL;
+    unsigned long int t = 0;
+    unsigned long int nt;
+    stream = fopen(targetFileName, "r");
+    nt = complexDPReadall(stream, &targets, &t);
+    if (nt == 0){
+        printf("Not able to load target points as double complex.\n");
+        fclose(stream);
+        free(sources);
+        free(targets);
+        return EXIT_FAILURE;
+    }
+    fclose(stream);
+
+    // load scalers
+    double complex * vector = NULL;
+    unsigned long int v = 0;
+    unsigned long int nv;
+    if (vectorFileName != NULL){
+        stream = fopen(vectorFileName, "r");
+        nv = complexDPReadall(stream, &vector, &v);
+        if (nv == 0 || nv != ns){
+            printf("Unable to load scalers as double complex or \n the number of source points and scalers do not match.\n");
+            fclose(stream);
+            free(sources);
+            free(targets);
+            free(vector);
+            return EXIT_FAILURE;
+        }
+    } else {
+        // set vector to default -- all scalers are 1.0 + 0.0*I
+        vector = (double complex*) malloc(ns*sizeof(double complex));
+        for (unsigned long int i = 0; i < ns; i++){
+            vector[i] = CMPLX(1.0, 0.0);
+        }
+    }
+
+    double complex *res;
+    res = (double complex *)malloc(nt*sizeof(double complex));
+    for (unsigned long int i = 0; i < nt; i++){
+        res[i] = CMPLX(0, 0);
+    }
+
+    fast_multipole_method_DP(res, sources, targets, vector, ns, nt, med, led, mx, mode);
+    stream = fopen(resultFileName, "w");
+    unsigned long int r;
+    r = complexDPWriteall(stream, res, nt);
+    if (r != nt){
+        printf("Error in wrting to result file.\n");
+        fclose(stream);
+        free(sources);
+        free(targets);
+        free(vector);
+        free(res);
+        return EXIT_FAILURE;
+    }
+    fclose(stream);
+    free(sources);
+    free(targets);
+    free(vector);
+    free(res);
+    return EXIT_SUCCESS;
+}
+
+
+int fmmMP(char *sourceFileName, char* targetFileName, 
+char* vectorFileName, char* resultFileName,
+unsigned int med, unsigned int led,
+unsigned long int mx, int mode, unsigned long int prec
+){
+    // load sources
+    mpc_t * sources = NULL;
+    unsigned long int s = 0;
+    unsigned long int ns = 0;
+    FILE *stream;
+    stream = fopen(sourceFileName, "r");
+    ns = complexMPReadall(stream, &sources, &s, prec);
+    if (ns == 0){
+        printf("Not able to load source points as multi-precision complex.\n");
+        fclose(stream);
+        free(sources);
+        return EXIT_FAILURE;
+    }
+    fclose(stream);
+
+    // load targets
+    mpc_t * targets = NULL;
+    unsigned long int t = 0;
+    unsigned long int nt = 0;
+    stream = fopen(targetFileName, "r");
+    nt = complexMPReadall(stream, &targets, &t, prec);
+    if (nt == 0){
+        printf("Not able to load target points as multi-precision complex.\n");
+        fclose(stream);
+        free(sources);
+        free(targets);
+        return EXIT_FAILURE;
+    }
+    fclose(stream);
+
+    // load scalers
+    mpc_t * vector = NULL;
+    unsigned long int v = 0;
+    unsigned long int nv = 0;
+    if (vectorFileName != NULL){
+        stream = fopen(vectorFileName, "r");
+        nv = complexMPReadall(stream, &vector, &v, prec);
+        if (nv == 0 || nv != ns){
+            printf("Unable to load scalers as multi-precision complex or \n the number of source points and scalers do not match.\n");
+            fclose(stream);
+            free(sources);
+            free(targets);
+            free(vector);
+            return EXIT_FAILURE;
+        }
+    } else {
+        // set vector to default -- all scalers are 1.0 + 0.0*I
+        vector = (mpc_t *) malloc(ns*sizeof(mpc_t));
+        for (unsigned long int i = 0; i < ns; i++){
+            mpc_init2(vector[i], prec);
+            mpc_set_d(vector[i], 1, MPC_RNDNN);
+        }
+    }
+
+    mpc_t *res;
+    res = (mpc_t *)malloc(nt*sizeof(mpc_t));
+    for (unsigned long int i = 0; i < nt; i++){
+        mpc_init2(res[i], prec);
+    }
+
+    fast_multipole_method_MP(res, sources, targets, vector, ns, nt, med, led, mx, mode, prec);
+    stream = fopen(resultFileName, "w");
+    unsigned long int r;
+    r = complexMPWriteall(stream, res, nt);
+    if (r != nt){
+        printf("Error in wrting to result file.\n");
+        fclose(stream);
+        for (unsigned long int i = 0; i < ns; i++){
+            mpc_clear(sources[i]);
+            mpc_clear(vector[i]);
+        }
+        for (unsigned long int i = 0; i < nt; i++){
+            mpc_clear(targets[i]);
+            mpc_clear(res[i]);
+        }
+        free(sources);
+        free(targets);
+        free(vector);
+        free(res);
+        return EXIT_FAILURE;
+    }
+    for (unsigned long int i = 0; i < ns; i++){
+        mpc_clear(sources[i]);
+        mpc_clear(vector[i]);
+    }
+    for (unsigned long int i = 0; i < nt; i++){
+        mpc_clear(targets[i]);
+        mpc_clear(res[i]);
+    }
+    fclose(stream);
+    free(sources);
+    free(targets);
+    free(vector);
+    free(res);
+    return EXIT_SUCCESS;
+}
+
+
 int main(int argc, char* argv[]){
 
 /*
@@ -23,14 +214,12 @@ int main(int argc, char* argv[]){
     -x number          set the maximum source number in the finest grids, 
                        i.e. a grid will not be further sub-divided if number of sources 
                        contained is less than this number. The default and minimum is 300.
-
-    TO BE IMPLEMENTED
     -p digits          set the number of digits used in computation. Double precision used 53 digits.   
 */
 
     char* sourceFileName, *vectorFileName, *targetFileName, *resultFileName;
     sourceFileName = vectorFileName = targetFileName = resultFileName = NULL;
-    int mode;
+    int mode = 0; // default mode is 0
     unsigned int med = 15; // default multipole expansion degree is 15
     unsigned int led = 20; // default local expansion degree is 20
     unsigned int tempUint;
@@ -133,6 +322,18 @@ int main(int argc, char* argv[]){
                             return EXIT_FAILURE;
                         }
                         break;
+                    case 'p':
+                        if ((i + (++argind)) < argc){
+                            if (sscanf(argv[i + argind], "%lu", &tempUlint) != 1){
+                                printf("Invalid argument of -p option\n");
+                                return EXIT_FAILURE;
+                            }
+                            prec = (tempUlint >= 53)? tempUlint: 53;
+                        } else {
+                            printf("No argument for -p option\n");
+                            return EXIT_FAILURE;
+                        }
+                        break;
                     default:
                         printf("Invalid option. \n");
                         return EXIT_FAILURE;
@@ -165,84 +366,12 @@ int main(int argc, char* argv[]){
 
 
     if (prec <= 53) { // use double precision for computation
-        // load sources
-        double complex * sources = NULL;
-        unsigned long int s = 0;
-        unsigned long int ns;
-        FILE *stream;
-        stream = fopen(sourceFileName, "r");
-        ns = complexDPReadall(stream, &sources, &s);
-        if (ns == 0){
-            printf("Not able to load source points as double complex.\n");
-            fclose(stream);
-            free(sources);
-            return EXIT_FAILURE;
-        }
-        fclose(stream);
-
-        // load targets
-        double complex * targets = NULL;
-        unsigned long int t = 0;
-        unsigned long int nt;
-        stream = fopen(targetFileName, "r");
-        nt = complexDPReadall(stream, &targets, &t);
-        if (nt == 0){
-            printf("Not able to load target points as double complex.\n");
-            fclose(stream);
-            free(sources);
-            free(targets);
-            return EXIT_FAILURE;
-        }
-        fclose(stream);
-
-        // load scalers
-        double complex * vector = NULL;
-        unsigned long int v = 0;
-        unsigned long int nv;
-        if (vectorFileName != NULL){
-            stream = fopen(vectorFileName, "r");
-            nv = complexDPReadall(stream, &vector, &v);
-            if (nv == 0 || nv != ns){
-                printf("Unable to load scalers as double complex or \n the number of source points and scalers do not match.\n");
-                fclose(stream);
-                free(sources);
-                free(targets);
-                free(vector);
-                return EXIT_FAILURE;
-            }
-        } else {
-            // set vector to default -- all scalers are 1.0 + 0.0*I
-            vector = (double complex*) malloc(ns*sizeof(double complex));
-            for (unsigned long int i = 0; i < ns; i++){
-                vector[i] = CMPLX(1.0, 0.0);
-            }
-        }
-
-        double complex *res;
-        res = (double complex *)malloc(nt*sizeof(double complex));
-        for (unsigned long int i = 0; i < nt; i++){
-            res[i] = CMPLX(0, 0);
-        }
-
-        fast_multipole_method_DP(res, sources, targets, vector, ns, nt, med, led, mx, mode);
-        stream = fopen(resultFileName, "w");
-        unsigned long int r;
-        r = complexDPWriteall(stream, res, nt);
-        if (r != nt){
-            printf("Error in wrting to result file.\n");
-            fclose(stream);
-            free(sources);
-            free(targets);
-            free(vector);
-            free(res);
-            return EXIT_FAILURE;
-        }
-        fclose(stream);
-        free(sources);
-        free(targets);
-        free(vector);
-        free(res);
+        fmmDP(sourceFileName, targetFileName, vectorFileName, resultFileName, med, led, mx, mode);
+    } else {
+        fmmMP(sourceFileName, targetFileName, vectorFileName, resultFileName, med, led, mx, mode, prec);
     }
+
+    printf("Computation results are written to file %s\n", resultFileName);
 
     return EXIT_SUCCESS;
 }

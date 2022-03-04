@@ -65,8 +65,10 @@ double complex * sources, double complex * vec, int m, double complex *tempS){
 }
 
 
-void shiftMultipoleExpansionReciprocalDP(double complex* coeff, double complex nCenter, double complex oCenter, 
-unsigned int deg, double complex *oCoeff, double complex *temp, double complex *z0){
+void shiftMultipoleExpansionReciprocalDP(double complex* coeff, 
+double complex nCenter, double complex oCenter, 
+unsigned int deg, double complex *oCoeff, 
+double complex *temp, double complex *z0){
     char * endptr;
     z0[0] = 1;
     double complex shift = oCenter - nCenter;
@@ -87,8 +89,10 @@ unsigned int deg, double complex *oCoeff, double complex *temp, double complex *
     return;
 }
 
-void shiftMultipoleExpansionLogDP(double complex* coeff, double complex nCenter, double complex oCenter, 
-unsigned int deg, double complex *oCoeff, double complex *temp, double complex *z0){
+void shiftMultipoleExpansionLogDP(double complex* coeff, 
+double complex nCenter, double complex oCenter, 
+unsigned int deg, double complex *oCoeff, 
+double complex *temp, double complex *z0){
     char *endptr;
     z0[0] = 1;
     for (int i = 1; i <= deg; i++){
@@ -119,7 +123,8 @@ double complex *temp, double complex *z0, int m){
     return;
 }
 
-void multipoleToLocalReciprocalDP(double complex* coeff, double complex nCenter, double complex oCenter,
+void multipoleToLocalReciprocalDP(double complex* coeff, 
+double complex nCenter, double complex oCenter,
 unsigned int md, unsigned int ld, double complex *oCoeff, 
 double complex *temp, double complex *z){
 /*
@@ -293,8 +298,5 @@ unsigned int d, double complex *coeff, int m){
     }
 }
 
-/* 
-Expansion computation based on multiple precision
-*/
 
 

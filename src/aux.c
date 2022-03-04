@@ -1,21 +1,25 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <complex.h>
 #include <math.h>
+#include <complex.h>
+#include <gmp.h>
+#include <mpfr.h>
+#include <mpc.h>
 #include <time.h>
 #include <string.h>
 #include "../include/mp_fmm.h"
 
 /* 
-Tree Structures For Partition of FMM
+General Tree Structure functions,
+and Tree Structure functions for double precision computation.
 */
 
 
-
 struct TreeNode* newTreeNodeDP(struct TreeNode* par,
-    double radiusDouble, double centerRealDouble, double centerImagDouble){
+double radiusDouble, double centerRealDouble, double centerImagDouble){
     struct TreeNode * temp = (struct TreeNode*)malloc(sizeof(struct TreeNode));
 
+    temp->isDoublePrecision = 1;
     temp->radiusDouble = radiusDouble;
     temp->centerRealDouble = centerRealDouble;
     temp->centerImagDouble = centerImagDouble;
@@ -37,6 +41,7 @@ struct TreeNode* newTreeNodeDP(struct TreeNode* par,
     temp->localExpansionDouble = NULL;
     return temp;
 }
+
 
 void getTreeNodeChildren(struct TreeNode *node, struct TreeNode **children){
     struct TreeNode * tmp;
@@ -82,21 +87,18 @@ void freeTreeNode(struct TreeNode* node){
     if (node->interactions) free(node->interactions);
 
     if (node->isDoublePrecision == 0) {
-        // if (node->multipoleExpansion != NULL) {
-        //     for (unsigned int i = 0; i <= node->multipoleExpansionDegree; ++i){
-        //         //mpc_clear(node->multipoleExpansion[i]);
-        //         mpf_clear(node->multipoleExpansion[i]);
-        //     }
-        //     free(node->multipoleExpansion);
-        // }
-        // if (node->localExpansion != NULL) {
-        //     for (unsigned int i = 0; i <= node->localExpansionDegree; ++i){
-        //         //mpc_clear(node->multipoleExpansion[i]);
-        //         mpf_clear(node->multipoleExpansion[i]);
-        //     }
-        //     free(node->localExpansion);
-        // }
-        
+        if (node->multipoleExpansionMP != NULL) {
+            for (unsigned int i = 0; i <= node->multipoleExpansionDegree; ++i){
+                mpc_clear(node->multipoleExpansionMP[i]);
+            }
+            free(node->multipoleExpansionMP);
+        }
+        if (node->localExpansionMP != NULL) {
+            for (unsigned int i = 0; i <= node->localExpansionDegree; ++i){
+                mpc_clear(node->localExpansionMP[i]);
+            }
+            free(node->localExpansionMP);
+        }
     } else {
         if (node->multipoleExpansionDouble) free(node->multipoleExpansionDouble);
         if (node->localExpansionDouble) free(node->localExpansionDouble);
@@ -161,7 +163,6 @@ void nodeNeighborInteractionDP(struct TreeNode *node){
     into either Near Neighbor or Interaction
     */
     int numCandidates = 0;
-    struct TreeNode * c1, * c2, * c3, * c4;
     struct TreeNode ** candidates = (struct TreeNode**)malloc(36*sizeof(struct TreeNode *));
     struct TreeNode * par, * tmp; 
     struct TreeNode **children = (struct TreeNode **)malloc(4*sizeof(struct TreeNode *));
@@ -194,6 +195,7 @@ void nodeNeighborInteractionDP(struct TreeNode *node){
         node->numNearNeighbors++;
     }
     free(candidates);
+    free(children);
 }
 
 void generateNeighbourInteractionDP(struct TreeNode * root){
@@ -478,7 +480,11 @@ struct TreeNode ** nodeMap
         tmp = cur;
         cur = nxt;
         nxt = tmp;
+        tmp = NULL;
     }
+    stackFreeStack(cur);
+    stackFreeStack(nxt);
+    stackFreeStack(tmp);
     return root;
 }
 
@@ -829,7 +835,7 @@ unsigned long int complexDPReadall(FILE *input, double complex **dataptr, unsign
             *sizeptr = size;
         }
 
-        if (fscanf(input, " %lf %lf", &tempReal, &tempImag) != 2)
+        if (fscanf(input, " (%lf %lf)", &tempReal, &tempImag) != 2)
             break;
         data[used] = CMPLX(tempReal, tempImag);
         /* One more vector read successfully. */
@@ -848,10 +854,11 @@ unsigned long int complexDPReadall(FILE *input, double complex **dataptr, unsign
 unsigned long int complexDPWriteall(FILE* output, double complex * data, unsigned long int n) {
     unsigned long int used = 0;
     for (unsigned long int i = 0; i < n; i++){
-        if (fprintf(output, "%.17g %.17g\n", creal(data[i]), cimag(data[i])) <= 0){
+        if (fprintf(output, "(%.17g %.17g)\n", creal(data[i]), cimag(data[i])) <= 0){
             return 0;
         }
         used++;
     }
     return used;
 }
+
